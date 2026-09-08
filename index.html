@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Chat | Real-Time Production Stack</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        nexus: {
+                            50: '#f0f3ff',
+                            100: '#e0e7ff',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#1e1b4b',
+                            950: '#0f0e26',
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.8, filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.6))' },
+                            '50%': { opacity: 0.4, filter: 'drop-shadow(0 0 2px rgba(99, 102, 241, 0.2))' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-6px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Three.js CDN for Dynamic Logo Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366F1;
+            --primary-gradient: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            --bg-main: #F8FAFC;
+            --bg-sidebar: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --border: #E2E8F0;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(226, 232, 240, 0.8);
+        }
+
+        .dark {
+            --primary: #818CF8;
+            --primary-gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            --bg-main: #090D16;
+            --bg-sidebar: #0E1422;
+            --bg-card: #131B2E;
+            --border: #1E293B;
+            --text-main: #F1F5F9;
+            --text-muted: #8090A7;
+            --glass-bg: rgba(19, 27, 46, 0.75);
+            --glass-border: rgba(30, 41, 59, 0.8);
+        }
+
+        .theme-cyber {
+            --primary: #06B6D4;
+            --primary-gradient: linear-gradient(135deg, #0891B2 0%, #3B82F6 100%);
+            --bg-main: #030712;
+            --bg-sidebar: #070E1C;
+            --bg-card: #0D172A;
+            --border: #1E293B;
+            --text-main: #F0F9FF;
+            --text-muted: #64748B;
+            --glass-bg: rgba(13, 23, 42, 0.8);
+            --glass-border: rgba(6, 182, 212, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.6);
+        }
+
+        .gradient-btn {
+            background: var(--primary-gradient);
+            box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.35);
+        }
+        .gradient-btn:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.45);
+        }
+
+        .chat-bubble-sent {
+            background: var(--primary-gradient);
+            color: #FFFFFF;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        .chat-bubble-received {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none bg-[var(--bg-main)]">
+
+    <!-- Mobile Drawer Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden transition-opacity"></div>
+
+    <div id="app" class="flex h-full w-full relative overflow-hidden">
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 w-80 md:w-84 flex-shrink-0 bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 relative shadow-2xl md:shadow-xl">
+            
+            <!-- Brand Header -->
+            <div class="p-4 border-b border-[var(--border)] flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-900/80 to-slate-900/90 border border-indigo-500/40 flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden group cursor-pointer" title="Nexus 3D Engine">
+                        <canvas id="logo3dCanvas" class="w-full h-full object-cover"></canvas>
+                    </div>
+                    <div>
+                        <div class="text-lg font-black tracking-tight text-[var(--text-main)] flex items-center gap-1.5">
+                            NEXUS <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-extrabold uppercase border border-indigo-500/20">PRO</span>
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] font-semibold tracking-wider uppercase">
+                            Real-Time Mesh Network
+                        </div>
+                    </div>
+                </div>
+                <button id="closeSidebarMobile" class="md:hidden p-2 text-[var(--text-muted)] hover:text-[var(--text-main)]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Connection Live Monitor Bar -->
+            <div id="connectionBar" class="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between text-xs font-semibold text-emerald-500">
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> 
+                    <span>Firestore Live Sync</span>
+                </span>
+                <span id="latencyDisplay" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Active</span>
+            </div>
+
+            <div class="p-4 border-b border-[var(--border)] space-y-3">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-[var(--text-muted)] text-xs"></i>
+                    <input type="text" id="contactSearch" placeholder="Search or press Enter to DM User ID..." 
+                           class="w-full pl-9 pr-4 py-2.5 text-xs bg-[var(--bg-main)] border border-[var(--border)] rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--text-main)] transition-all shadow-inner">
+                </div>
+                <div class="flex gap-1.5 overflow-x-auto pb-1 text-[11px] font-semibold text-[var(--text-muted)]">
+                    <button class="filter-chip px-3 py-1.5 rounded-xl bg-indigo-600 text-white shadow-sm transition" data-filter="all">All Chats</button>
+                    <button class="filter-chip px-3 py-1.5 rounded-xl hover:bg-[var(--bg-main)] transition" data-filter="channels">Channels</button>
+                    <button class="filter-chip px-3 py-1.5 rounded-xl hover:bg-[var(--bg-main)] transition" data-filter="direct">Direct</button>
+                </div>
+            </div>
+
+            <!-- Contact & Channels List -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-1" id="contactList">
+                <!-- Dynamically rendered via JS -->
+            </div>
+
+            <!-- Profile & Peer UID Card -->
+            <div class="p-4 border-t border-[var(--border)] flex flex-col gap-3 bg-[var(--bg-sidebar)]">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 cursor-pointer group" id="userProfileBtn">
+                        <div class="relative">
+                            <div id="userAvatarContainer" class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                                ME
+                            </div>
+                            <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-[var(--bg-sidebar)] rounded-full"></span>
+                        </div>
+                        <div class="overflow-hidden">
+                            <div id="userNameDisplay" class="font-bold text-sm truncate group-hover:text-indigo-400 transition">Connecting...</div>
+                            <div id="userBioDisplay" class="text-[11px] text-[var(--text-muted)] truncate">Online & Ready</div>
+                        </div>
+                    </div>
+                    <button id="openSettings" class="p-2.5 rounded-xl border border-[var(--border)] hover:bg-[var(--bg-main)] text-[var(--text-main)] transition hover:scale-105 shadow-sm" title="Settings">
+                        <i class="fa-solid fa-sliders text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Peer ID Box -->
+                <div class="px-3.5 py-2.5 rounded-2xl bg-[var(--bg-main)] border border-[var(--border)] flex items-center justify-between text-xs shadow-inner">
+                    <div class="overflow-hidden mr-2">
+                        <div class="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-wider">My Peer UID</div>
+                        <div id="myUidDisplay" class="font-mono text-[11px] truncate text-indigo-400 font-medium">Loading...</div>
+                    </div>
+                    <button id="copyUidBtn" class="px-2.5 py-1.5 gradient-btn text-white font-bold rounded-lg hover:opacity-90 transition text-[10px] flex items-center gap-1 flex-shrink-0">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Copy</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col bg-[var(--bg-main)] relative overflow-hidden h-full">
+            
+            <!-- Room Header Bar -->
+            <header class="h-20 bg-[var(--bg-sidebar)] border-b border-[var(--border)] px-4 md:px-6 flex items-center justify-between z-10 shadow-sm flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <button id="openSidebarMobile" class="md:hidden p-2.5 rounded-xl border border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--bg-main)]">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="relative">
+                        <div id="activeAvatar" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-indigo-500/20">
+                            #
+                        </div>
+                        <span id="activeStatusDot" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-[var(--bg-sidebar)] rounded-full"></span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 id="activeChatTitle" class="text-base md:text-lg font-black text-[var(--text-main)] tracking-tight truncate max-w-[150px] sm:max-w-none"># general</h2>
+                            <span id="activeBadge" class="px-2 py-0.5 text-[9px] md:text-[10px] font-extrabold uppercase rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Public Channel</span>
+                        </div>
+                        <div id="activeChatSubtitle" class="text-[11px] md:text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5 font-medium truncate">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span> Live Firestore Real-Time Mesh
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WebRTC Calling Actions -->
+                <div class="flex items-center gap-2 md:gap-3">
+                    <button id="startVoiceCall" class="px-3.5 py-2.5 text-xs font-bold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-main)] text-[var(--text-main)] transition flex items-center gap-2 shadow-sm hover:scale-105">
+                        <i class="fa-solid fa-phone text-emerald-500 text-sm"></i> 
+                        <span class="hidden sm:inline">Voice Call</span>
+                    </button>
+                    <button id="startVideoCall" class="px-3.5 py-2.5 text-xs font-bold rounded-xl gradient-btn text-white transition flex items-center gap-2 shadow-md">
+                        <i class="fa-solid fa-video text-sm"></i> 
+                        <span class="hidden sm:inline">Video Call</span>
+                    </button>
+                </div>
+            </header>
+
+            <div id="chatMessages" class="flex-1 p-4 md:p-6 overflow-y-auto space-y-4">
+                <!-- Messages populated dynamically via Firestore snapshot -->
+            </div>
+
+            <!-- Attachment File Preview Banner -->
+            <div id="attachmentPreview" class="hidden px-6 py-3 bg-indigo-500/10 border-t border-indigo-500/20 items-center justify-between text-xs backdrop-blur-md">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div id="attachmentIcon" class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow">
+                        <i class="fa-solid fa-paperclip"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <div id="attachedFileName" class="font-bold text-[var(--text-main)] truncate">File Attached</div>
+                        <div id="attachedFileSize" class="text-[10px] text-[var(--text-muted)]">Ready for instant delivery</div>
+                    </div>
+                </div>
+                <button id="removeAttachment" class="w-8 h-8 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center font-bold transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Input Toolbar -->
+            <div class="p-3 md:p-4 bg-[var(--bg-sidebar)] border-t border-[var(--border)] flex-shrink-0">
+                <form id="chatForm" class="flex items-end gap-2 md:gap-3">
+                    <input type="file" id="fileInput" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip">
+                    
+                    <button type="button" id="attachBtn" class="p-3 md:p-3.5 text-[var(--text-muted)] hover:text-indigo-400 hover:bg-[var(--bg-main)] rounded-2xl border border-[var(--border)] transition hover:scale-105 flex-shrink-0" title="Attach file (<500KB)">
+                        <i class="fa-solid fa-paperclip text-base"></i>
+                    </button>
+
+                    <div class="flex-1 relative">
+                        <textarea id="messageInput" rows="1" placeholder="Write a message or paste User ID..." 
+                                  class="w-full pl-4 pr-10 py-3 md:py-3.5 bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--text-main)] resize-none transition-all max-h-32 text-xs md:text-sm leading-relaxed shadow-inner"></textarea>
+                    </div>
+
+                    <button type="submit" id="sendBtn" class="px-5 md:px-6 py-3 md:py-3.5 gradient-btn text-white font-black rounded-2xl transition flex items-center justify-center gap-2 shadow-lg flex-shrink-0">
+                        <span>Send</span>
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 transition-all duration-300" id="settingsModal">
+        <div class="bg-[var(--bg-sidebar)] w-full max-w-2xl rounded-3xl shadow-2xl border border-[var(--border)] flex flex-col md:flex-row overflow-hidden transform transition-all scale-95 opacity-0" id="modalContainer">
+            
+            <div class="w-full md:w-56 bg-[var(--bg-main)] border-r border-[var(--border)] p-4 md:p-5 flex flex-col justify-between">
+                <div class="space-y-1.5">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider px-2 mb-3">Preferences</div>
+                    <button class="modal-tab active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition text-white bg-indigo-600 shadow-md" data-tab="profile">
+                        <i class="fa-solid fa-user-pen w-4 text-center"></i> Edit Profile
+                    </button>
+                    <button class="modal-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs transition text-[var(--text-muted)] hover:bg-[var(--bg-sidebar)]" data-tab="appearance">
+                        <i class="fa-solid fa-palette w-4 text-center"></i> Appearance
+                    </button>
+                    <button class="modal-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs transition text-[var(--text-muted)] hover:bg-[var(--bg-sidebar)]" data-tab="devices">
+                        <i class="fa-solid fa-sliders w-4 text-center"></i> Media Hardware
+                    </button>
+                </div>
+                <div class="p-3 bg-[var(--bg-sidebar)] rounded-2xl border border-[var(--border)] text-[11px] text-[var(--text-muted)] mt-4 hidden md:block">
+                    <div class="font-bold text-[var(--text-main)] mb-0.5">Nexus Engine v2.5</div>
+                    <div class="text-emerald-500 font-medium flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Firestore + WebRTC
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 flex flex-col bg-[var(--bg-sidebar)]">
+                <div class="p-5 border-b border-[var(--border)] flex items-center justify-between">
+                    <h2 id="modalTabTitle" class="text-lg font-black text-[var(--text-main)]">Edit Profile</h2>
+                    <button class="w-8 h-8 rounded-xl bg-[var(--bg-main)] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-center transition" id="closeSettings">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 p-6 overflow-y-auto space-y-5" id="modalTabContent">
+                    <!-- Rendered Dynamically -->
+                </div>
+
+                <div class="p-4 border-t border-[var(--border)] bg-[var(--bg-main)] flex justify-end gap-2.5">
+                    <button class="px-5 py-2.5 rounded-xl border border-[var(--border)] hover:bg-[var(--bg-sidebar)] font-bold text-xs transition" id="cancelSettingsBtn">
+                        Cancel
+                    </button>
+                    <button class="px-6 py-2.5 rounded-xl gradient-btn text-white font-bold text-xs transition shadow-md" id="saveSettingsBtn">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="incomingCallModal" class="fixed top-6 right-6 z-50 hidden bg-slate-900 border border-indigo-500/30 text-white p-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-bounce glass-panel">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-base shadow-lg" id="incomingCallerAvatar">
+            ?
+        </div>
+        <div>
+            <div class="font-bold text-sm" id="incomingCallerName">Incoming Call</div>
+            <div class="text-[11px] text-indigo-400 font-medium" id="incomingCallType">Voice Call Session</div>
+        </div>
+        <div class="flex items-center gap-2 ml-4">
+            <button id="acceptCallBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl text-xs transition shadow-md">
+                Accept
+            </button>
+            <button id="declineCallBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 font-bold rounded-xl text-xs transition shadow-md">
+                Decline
+            </button>
+        </div>
+    </div>
+
+    <div id="callModal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 hidden flex flex-col items-center justify-between p-6 text-white">
+        
+        <div class="w-full max-w-5xl flex justify-between items-center z-10 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+                <span id="callStatusText" class="font-bold text-xs text-slate-300">Live Peer-to-Peer Encrypted Call</span>
+            </div>
+            <div id="callTimer" class="font-mono text-sm font-black bg-indigo-600/30 text-indigo-400 px-4 py-1.5 rounded-full border border-indigo-500/30">
+                00:00
+            </div>
+        </div>
+
+        <div class="flex-1 w-full max-w-5xl my-4 relative flex items-center justify-center rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl">
+            <video id="remoteVideoFeed" class="w-full h-full object-cover hidden" autoplay playsinline></video>
+            
+            <div id="pipContainer" class="absolute bottom-6 right-6 w-48 h-36 bg-slate-800 border-2 border-indigo-500/50 rounded-2xl overflow-hidden shadow-2xl hidden">
+                <video id="localVideoFeed" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            </div>
+
+            <div id="callAvatarOverlay" class="flex flex-col items-center justify-center">
+                <div class="w-28 h-28 rounded-3xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-4xl flex items-center justify-center font-black shadow-2xl mb-4 animate-pulse-glow" id="callTargetAvatar">
+                    ?
+                </div>
+                <h3 id="callContactName" class="text-xl font-black tracking-tight">Connecting Peer...</h3>
+                <p id="callSubState" class="text-indigo-400 text-xs mt-1.5 font-medium">Exchanging WebRTC SDP Candidates over Firestore...</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6 z-10 bg-slate-900/80 px-8 py-4 rounded-full border border-slate-800 shadow-2xl">
+            <button id="toggleMicBtn" class="w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center text-xl transition border border-slate-700" title="Toggle Microphone">
+                <i class="fa-solid fa-microphone"></i>
+            </button>
+            <button id="toggleCamBtn" class="w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center text-xl transition border border-slate-700" title="Toggle Camera">
+                <i class="fa-solid fa-video"></i>
+            </button>
+            <button id="endCallBtn" class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center text-2xl transition shadow-lg shadow-rose-600/40 hover:scale-110" title="End Call">
+                <i class="fa-solid fa-phone-slash"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment Firebase Credentials Guardrail
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nexus-chat-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:demo"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // STUN Configuration for WebRTC P2P Streams
+        const rtcConfig = {
+            iceServers: [
+                { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
+            ]
+        };
+
+        // Application State
+        const STATE = {
+            currentUser: null,
+            userId: null,
+            displayName: 'Guest User',
+            bio: 'Active Nexus Mesh Peer',
+            theme: 'dark',
+            activeChatId: 'chan_general',
+            activeChatType: 'channel',
+            activeChatTitle: '# general',
+            activeFilter: 'all',
+            searchQuery: '',
+            attachment: null,
+            attachmentMeta: null,
+            
+            // WebRTC Call State
+            peerConnection: null,
+            localStream: null,
+            remoteStream: null,
+            activeCallId: null,
+            callRole: null,
+            callTimerInterval: null,
+            callDuration: 0,
+            micMuted: false,
+            camMuted: false,
+
+            // Default Channels
+            channels: [
+                { id: 'chan_general', name: '# general', description: 'Public Mesh Channel', badge: 'Public' },
+                { id: 'chan_dev', name: '# dev-team', description: 'Code & Architecture Updates', badge: 'Engineering' },
+                { id: 'chan_announcements', name: '# announcements', description: 'Network Broadcasts', badge: 'Official' }
+            ],
+            directChats: []
+        };
+
+        // DOM Element Registry
+        const DOM = {
+            contactList: document.getElementById('contactList'),
+            chatMessages: document.getElementById('chatMessages'),
+            chatForm: document.getElementById('chatForm'),
+            messageInput: document.getElementById('messageInput'),
+            fileInput: document.getElementById('fileInput'),
+            attachBtn: document.getElementById('attachBtn'),
+            attachmentPreview: document.getElementById('attachmentPreview'),
+            attachedFileName: document.getElementById('attachedFileName'),
+            attachedFileSize: document.getElementById('attachedFileSize'),
+            removeAttachment: document.getElementById('removeAttachment'),
+            activeChatTitle: document.getElementById('activeChatTitle'),
+            activeChatSubtitle: document.getElementById('activeChatSubtitle'),
+            activeBadge: document.getElementById('activeBadge'),
+            activeAvatar: document.getElementById('activeAvatar'),
+            userAvatarContainer: document.getElementById('userAvatarContainer'),
+            userNameDisplay: document.getElementById('userNameDisplay'),
+            userBioDisplay: document.getElementById('userBioDisplay'),
+            myUidDisplay: document.getElementById('myUidDisplay'),
+            copyUidBtn: document.getElementById('copyUidBtn'),
+            toastContainer: document.getElementById('toastContainer'),
+            
+            sidebar: document.getElementById('sidebar'),
+            mobileOverlay: document.getElementById('mobileOverlay'),
+            openSidebarMobile: document.getElementById('openSidebarMobile'),
+            closeSidebarMobile: document.getElementById('closeSidebarMobile'),
+
+            startVoiceCall: document.getElementById('startVoiceCall'),
+            startVideoCall: document.getElementById('startVideoCall'),
+            callModal: document.getElementById('callModal'),
+            endCallBtn: document.getElementById('endCallBtn'),
+            toggleMicBtn: document.getElementById('toggleMicBtn'),
+            toggleCamBtn: document.getElementById('toggleCamBtn'),
+            callTimer: document.getElementById('callTimer'),
+            localVideoFeed: document.getElementById('localVideoFeed'),
+            remoteVideoFeed: document.getElementById('remoteVideoFeed'),
+            pipContainer: document.getElementById('pipContainer'),
+            callAvatarOverlay: document.getElementById('callAvatarOverlay'),
+            callTargetAvatar: document.getElementById('callTargetAvatar'),
+            callContactName: document.getElementById('callContactName'),
+            callSubState: document.getElementById('callSubState'),
+            
+            incomingCallModal: document.getElementById('incomingCallModal'),
+            incomingCallerAvatar: document.getElementById('incomingCallerAvatar'),
+            incomingCallerName: document.getElementById('incomingCallerName'),
+            incomingCallType: document.getElementById('incomingCallType'),
+            acceptCallBtn: document.getElementById('acceptCallBtn'),
+            declineCallBtn: document.getElementById('declineCallBtn'),
+
+            openSettings: document.getElementById('openSettings'),
+            closeSettings: document.getElementById('closeSettings'),
+            settingsModal: document.getElementById('settingsModal'),
+            modalContainer: document.getElementById('modalContainer'),
+            modalTabTitle: document.getElementById('modalTabTitle'),
+            modalTabContent: document.getElementById('modalTabContent'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
+            contactSearch: document.getElementById('contactSearch')
+        };
+
+        function init3DLogo() {
+            const canvas = document.getElementById('logo3dCanvas');
+            if (!canvas) return;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+            camera.position.z = 3.2;
+
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            renderer.setSize(44, 44);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const geometry = new THREE.TorusKnotGeometry(0.75, 0.22, 100, 16);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x818cf8,
+                emissive: 0x4f46e5,
+                emissiveIntensity: 0.6,
+                roughness: 0.2,
+                metalness: 0.8
+            });
+
+            const knot = new THREE.Mesh(geometry, material);
+            scene.add(knot);
+
+            const wireframeMat = new THREE.MeshBasicMaterial({ color: 0xc7d2fe, wireframe: true, transparent: true, opacity: 0.25 });
+            const wireframeMesh = new THREE.Mesh(geometry, wireframeMat);
+            scene.add(wireframeMesh);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0x06b6d4, 2, 10);
+            pointLight.position.set(2, 2, 2);
+            scene.add(pointLight);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                knot.rotation.x += 0.015;
+                knot.rotation.y += 0.02;
+                wireframeMesh.rotation.x += 0.015;
+                wireframeMesh.rotation.y += 0.02;
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Web Audio Synthesizer
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playChime() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e) {}
+            }
+        };
+
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                STATE.currentUser = auth.currentUser;
+                STATE.userId = auth.currentUser.uid;
+                STATE.displayName = 'Peer_' + STATE.userId.substring(0, 5);
+
+                DOM.userNameDisplay.textContent = STATE.displayName;
+                DOM.userAvatarContainer.textContent = STATE.displayName.substring(0, 2).toUpperCase();
+                DOM.myUidDisplay.textContent = STATE.userId;
+
+                showToast("Connected to Real-Time Mesh Network", "success");
+
+                syncUserProfile();
+                listenToMessages();
+                listenToIncomingCalls();
+                renderSidebar();
+            } catch (err) {
+                console.error("Auth error:", err);
+                showToast("Authentication with Firestore failed", "error");
+            }
+        }
+
+        async function syncUserProfile() {
+            if (!STATE.currentUser) return;
+            const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'profiles', STATE.userId);
+            try {
+                const snap = await getDoc(profileRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    STATE.displayName = data.displayName || STATE.displayName;
+                    STATE.bio = data.bio || STATE.bio;
+                    STATE.theme = data.theme || 'dark';
+                    DOM.userNameDisplay.textContent = STATE.displayName;
+                    DOM.userBioDisplay.textContent = STATE.bio;
+                    DOM.userAvatarContainer.textContent = STATE.displayName.substring(0, 2).toUpperCase();
+                    applyTheme(STATE.theme);
+                } else {
+                    await setDoc(profileRef, {
+                        uid: STATE.userId,
+                        displayName: STATE.displayName,
+                        bio: STATE.bio,
+                        theme: 'dark',
+                        lastActive: Date.now()
+                    });
+                }
+            } catch(e) {
+                console.error("Profile sync error:", e);
+            }
+        }
+
+        function listenToMessages() {
+            const messagesColl = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+            
+            onSnapshot(messagesColl, (snapshot) => {
+                const allMsgs = [];
+                snapshot.forEach(docSnap => {
+                    allMsgs.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                const currentRoomMsgs = allMsgs.filter(m => {
+                    if (STATE.activeChatType === 'channel') {
+                        return m.chatId === STATE.activeChatId;
+                    } else if (STATE.activeChatType === 'direct') {
+                        return (m.senderId === STATE.userId && m.targetId === STATE.activeChatId) ||
+                               (m.senderId === STATE.activeChatId && m.targetId === STATE.userId);
+                    }
+                    return false;
+                });
+
+                currentRoomMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                renderMessages(currentRoomMsgs);
+            }, (error) => {
+                console.error("Messages snapshot error:", error);
+            });
+        }
+
+        function renderMessages(messages) {
+            DOM.chatMessages.innerHTML = '';
+
+            if (messages.length === 0) {
+                DOM.chatMessages.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-[var(--text-muted)] text-xs space-y-3">
+                        <div class="w-16 h-16 rounded-3xl bg-indigo-500/10 flex items-center justify-center text-2xl text-indigo-500 shadow-inner">
+                            <i class="fa-solid fa-comments"></i>
+                        </div>
+                        <p class="font-bold text-sm text-[var(--text-main)]">No messages in ${STATE.activeChatTitle}</p>
+                        <p class="text-[11px] max-w-xs text-center">Start the conversation by sending a text message or uploading a media file.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            messages.forEach(msg => {
+                const isMe = msg.senderId === STATE.userId;
+                const wrapper = document.createElement('div');
+                wrapper.className = `flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2.5 group my-3`;
+
+                let attachmentHtml = '';
+                if (msg.fileData) {
+                    if (msg.fileType.startsWith('image/')) {
+                        attachmentHtml = `<img src="${msg.fileData}" class="max-w-xs rounded-2xl mb-2 border border-[var(--border)] shadow-md object-cover max-h-60" alt="Image"/>`;
+                    } else if (msg.fileType.startsWith('video/')) {
+                        attachmentHtml = `<video src="${msg.fileData}" controls class="max-w-xs rounded-2xl mb-2 border border-[var(--border)] shadow-md max-h-60"></video>`;
+                    } else if (msg.fileType.startsWith('audio/')) {
+                        attachmentHtml = `<audio src="${msg.fileData}" controls class="w-64 mb-2"></audio>`;
+                    } else {
+                        attachmentHtml = `
+                            <a href="${msg.fileData}" download="${msg.fileName || 'file'}" class="flex items-center gap-3 p-3 mb-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-[var(--text-main)] hover:underline">
+                                <i class="fa-solid fa-file-arrow-down text-2xl text-indigo-500"></i>
+                                <div class="truncate">
+                                    <div class="truncate">${msg.fileName || 'Document Attachment'}</div>
+                                    <div class="text-[10px] text-[var(--text-muted)]">Click to Download</div>
+                                </div>
+                            </a>
+                        `;
+                    }
+                }
+
+                const dateStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
+
+                wrapper.innerHTML = `
+                    ${!isMe ? `<div class="w-9 h-9 rounded-2xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-md border border-slate-700">${(msg.senderName || 'U').substring(0, 2).toUpperCase()}</div>` : ''}
+                    <div class="max-w-[75%] space-y-1">
+                        ${!isMe ? `<div class="text-[10px] font-extrabold text-[var(--text-muted)] ml-1">${msg.senderName || 'Peer'}</div>` : ''}
+                        <div class="p-3.5 md:p-4 rounded-3xl text-xs md:text-sm leading-relaxed ${isMe ? 'chat-bubble-sent' : 'chat-bubble-received'}">
+                            ${attachmentHtml}
+                            <div class="break-words">${msg.text || ''}</div>
+                            <div class="flex items-center justify-end gap-1 mt-1 text-[9px] opacity-75">
+                                <span>${dateStr}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                DOM.chatMessages.appendChild(wrapper);
+            });
+
+            DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        }
+
+        DOM.chatForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const text = DOM.messageInput.value.trim();
+            if (!text && !STATE.attachment) return;
+            if (!STATE.currentUser) {
+                showToast("Not connected to Firestore", "error");
+                return;
+            }
+
+            const messageDoc = {
+                chatId: STATE.activeChatId,
+                chatType: STATE.activeChatType,
+                senderId: STATE.userId,
+                senderName: STATE.displayName,
+                targetId: STATE.activeChatType === 'direct' ? STATE.activeChatId : null,
+                text: text,
+                fileData: STATE.attachment,
+                fileName: STATE.attachmentMeta?.name || null,
+                fileType: STATE.attachmentMeta?.type || null,
+                timestamp: Date.now()
+            };
+
+            try {
+                const messagesColl = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+                await addDoc(messagesColl, messageDoc);
+                AudioFX.playChime();
+                DOM.messageInput.value = '';
+                DOM.messageInput.style.height = 'auto';
+                clearAttachment();
+            } catch(err) {
+                console.error("Error sending message:", err);
+                showToast("Failed to transmit message", "error");
+            }
+        };
+
+        DOM.attachBtn.onclick = () => DOM.fileInput.click();
+        DOM.fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.size > 500 * 1024) {
+                showToast("File size limit is 500KB for real-time transfer", "warning");
+                DOM.fileInput.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                STATE.attachment = evt.target.result;
+                STATE.attachmentMeta = { name: file.name, type: file.type, size: (file.size / 1024).toFixed(1) + ' KB' };
+                DOM.attachedFileName.textContent = file.name;
+                DOM.attachedFileSize.textContent = STATE.attachmentMeta.size;
+                DOM.attachmentPreview.classList.remove('hidden');
+                DOM.attachmentPreview.classList.add('flex');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        DOM.removeAttachment.onclick = clearAttachment;
+        function clearAttachment() {
+            STATE.attachment = null;
+            STATE.attachmentMeta = null;
+            DOM.fileInput.value = '';
+            DOM.attachmentPreview.classList.add('hidden');
+            DOM.attachmentPreview.classList.remove('flex');
+        }
+
+        async function startCall(type) {
+            if (STATE.activeChatType !== 'direct') {
+                showToast("Select a Direct Peer User ID to start calls", "warning");
+                return;
+            }
+
+            try {
+                STATE.callRole = 'caller';
+                STATE.activeCallId = 'call_' + Date.now();
+                const isVideo = type === 'video';
+
+                STATE.localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
+                DOM.localVideoFeed.srcObject = STATE.localStream;
+                if (isVideo) DOM.pipContainer.classList.remove('hidden');
+
+                STATE.peerConnection = new RTCPeerConnection(rtcConfig);
+
+                STATE.localStream.getTracks().forEach(track => {
+                    STATE.peerConnection.addTrack(track, STATE.localStream);
+                });
+
+                STATE.remoteStream = new MediaStream();
+                DOM.remoteVideoFeed.srcObject = STATE.remoteStream;
+                STATE.peerConnection.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach(track => {
+                        STATE.remoteStream.addTrack(track);
+                    });
+                    DOM.remoteVideoFeed.classList.remove('hidden');
+                    DOM.callAvatarOverlay.classList.add('hidden');
+                };
+
+                const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', STATE.activeCallId);
+                const callerCandidatesColl = collection(callDocRef, 'callerCandidates');
+                const answererCandidatesColl = collection(callDocRef, 'answererCandidates');
+
+                STATE.peerConnection.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        addDoc(callerCandidatesColl, e.candidate.toJSON());
+                    }
+                };
+
+                const offerDoc = await STATE.peerConnection.createOffer();
+                await STATE.peerConnection.setLocalDescription(offerDoc);
+
+                const callData = {
+                    callerId: STATE.userId,
+                    callerName: STATE.displayName,
+                    targetId: STATE.activeChatId,
+                    type: type,
+                    offer: { type: offerDoc.type, sdp: offerDoc.sdp },
+                    status: 'offered',
+                    timestamp: Date.now()
+                };
+
+                await setDoc(callDocRef, callData);
+
+                onSnapshot(callDocRef, (snapshot) => {
+                    const data = snapshot.data();
+                    if (data && !STATE.peerConnection.currentRemoteDescription && data.answer) {
+                        const answerDescription = new RTCSessionDescription(data.answer);
+                        STATE.peerConnection.setRemoteDescription(answerDescription);
+                        DOM.callSubState.textContent = "WebRTC Handshake Established!";
+                    }
+                    if (data && data.status === 'ended') {
+                        closeCallUI();
+                    }
+                });
+
+                onSnapshot(answererCandidatesColl, (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const candidate = new RTCIceCandidate(change.doc.data());
+                            STATE.peerConnection.addIceCandidate(candidate);
+                        }
+                    });
+                });
+
+                DOM.callContactName.textContent = STATE.activeChatTitle;
+                DOM.callTargetAvatar.textContent = STATE.activeChatTitle.substring(0, 2).toUpperCase();
+                DOM.callModal.classList.remove('hidden');
+                DOM.callModal.classList.add('flex');
+                startCallTimer();
+                showToast(`Calling ${STATE.activeChatTitle}...`, "info");
+
+            } catch (e) {
+                console.error("WebRTC call error:", e);
+                showToast("Camera/Microphone permission denied or device unavailable", "error");
+            }
+        }
+
+        function listenToIncomingCalls() {
+            const callsColl = collection(db, 'artifacts', appId, 'public', 'data', 'calls');
+            onSnapshot(callsColl, (snapshot) => {
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.targetId === STATE.userId && data.status === 'offered' && STATE.activeCallId !== docSnap.id) {
+                        showIncomingCallPrompt(docSnap.id, data);
+                    }
+                });
+            });
+        }
+
+        function showIncomingCallPrompt(callId, callData) {
+            STATE.activeCallId = callId;
+            DOM.incomingCallerName.textContent = callData.callerName || 'Unknown Peer';
+            DOM.incomingCallType.textContent = `${callData.type.toUpperCase()} Call Request`;
+            DOM.incomingCallerAvatar.textContent = (callData.callerName || 'U').substring(0, 2).toUpperCase();
+            DOM.incomingCallModal.classList.remove('hidden');
+
+            DOM.acceptCallBtn.onclick = () => answerCall(callId, callData);
+            DOM.declineCallBtn.onclick = async () => {
+                DOM.incomingCallModal.classList.add('hidden');
+                const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId);
+                await updateDoc(callDocRef, { status: 'ended' });
+            };
+        }
+
+        async function answerCall(callId, callData) {
+            DOM.incomingCallModal.classList.add('hidden');
+            STATE.callRole = 'answerer';
+            const isVideo = callData.type === 'video';
+
+            try {
+                STATE.localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
+                DOM.localVideoFeed.srcObject = STATE.localStream;
+                if (isVideo) DOM.pipContainer.classList.remove('hidden');
+
+                STATE.peerConnection = new RTCPeerConnection(rtcConfig);
+                STATE.localStream.getTracks().forEach(track => {
+                    STATE.peerConnection.addTrack(track, STATE.localStream);
+                });
+
+                STATE.remoteStream = new MediaStream();
+                DOM.remoteVideoFeed.srcObject = STATE.remoteStream;
+                STATE.peerConnection.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach(track => {
+                        STATE.remoteStream.addTrack(track);
+                    });
+                    DOM.remoteVideoFeed.classList.remove('hidden');
+                    DOM.callAvatarOverlay.classList.add('hidden');
+                };
+
+                const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId);
+                const callerCandidatesColl = collection(callDocRef, 'callerCandidates');
+                const answererCandidatesColl = collection(callDocRef, 'answererCandidates');
+
+                STATE.peerConnection.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        addDoc(answererCandidatesColl, e.candidate.toJSON());
+                    }
+                };
+
+                await STATE.peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+                const answerDoc = await STATE.peerConnection.createAnswer();
+                await STATE.peerConnection.setLocalDescription(answerDoc);
+
+                await updateDoc(callDocRef, {
+                    answer: { type: answerDoc.type, sdp: answerDoc.sdp },
+                    status: 'connected'
+                });
+
+                onSnapshot(callerCandidatesColl, (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const candidate = new RTCIceCandidate(change.doc.data());
+                            STATE.peerConnection.addIceCandidate(candidate);
+                        }
+                    });
+                });
+
+                DOM.callContactName.textContent = callData.callerName;
+                DOM.callTargetAvatar.textContent = (callData.callerName || 'U').substring(0, 2).toUpperCase();
+                DOM.callModal.classList.remove('hidden');
+                DOM.callModal.classList.add('flex');
+                startCallTimer();
+
+            } catch(e) {
+                console.error("Answer call error:", e);
+                showToast("Failed to connect media device", "error");
+            }
+        }
+
+        function startCallTimer() {
+            STATE.callDuration = 0;
+            clearInterval(STATE.callTimerInterval);
+            STATE.callTimerInterval = setInterval(() => {
+                STATE.callDuration++;
+                const mins = String(Math.floor(STATE.callDuration / 60)).padStart(2, '0');
+                const secs = String(STATE.callDuration % 60).padStart(2, '0');
+                DOM.callTimer.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        async function endCall() {
+            if (STATE.activeCallId) {
+                try {
+                    const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', STATE.activeCallId);
+                    await updateDoc(callDocRef, { status: 'ended' });
+                } catch(e) {}
+            }
+            closeCallUI();
+        }
+
+        function closeCallUI() {
+            clearInterval(STATE.callTimerInterval);
+            if (STATE.localStream) {
+                STATE.localStream.getTracks().forEach(t => t.stop());
+            }
+            if (STATE.peerConnection) {
+                STATE.peerConnection.close();
+            }
+            STATE.peerConnection = null;
+            STATE.localStream = null;
+            STATE.remoteStream = null;
+            STATE.activeCallId = null;
+
+            DOM.callModal.classList.add('hidden');
+            DOM.callModal.classList.remove('flex');
+            DOM.remoteVideoFeed.classList.add('hidden');
+            DOM.pipContainer.classList.add('hidden');
+            DOM.callAvatarOverlay.classList.remove('hidden');
+            DOM.callTimer.textContent = '00:00';
+            showToast("Call ended", "info");
+        }
+
+        DOM.startVoiceCall.onclick = () => startCall('voice');
+        DOM.startVideoCall.onclick = () => startCall('video');
+        DOM.endCallBtn.onclick = endCall;
+
+        DOM.toggleMicBtn.onclick = () => {
+            if (!STATE.localStream) return;
+            const audioTrack = STATE.localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                STATE.micMuted = !audioTrack.enabled;
+                DOM.toggleMicBtn.classList.toggle('bg-rose-600', STATE.micMuted);
+                showToast(STATE.micMuted ? "Microphone muted" : "Microphone active", "info");
+            }
+        };
+
+        DOM.toggleCamBtn.onclick = () => {
+            if (!STATE.localStream) return;
+            const videoTrack = STATE.localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                STATE.camMuted = !videoTrack.enabled;
+                DOM.toggleCamBtn.classList.toggle('bg-rose-600', STATE.camMuted);
+                showToast(STATE.camMuted ? "Camera disabled" : "Camera enabled", "info");
+            }
+        };
+
+        function renderSidebar() {
+            DOM.contactList.innerHTML = '';
+
+            const query = STATE.searchQuery.toLowerCase();
+            const filteredChannels = STATE.channels.filter(ch => ch.name.toLowerCase().includes(query) || ch.description.toLowerCase().includes(query));
+
+            if (STATE.activeFilter === 'all' || STATE.activeFilter === 'channels') {
+                if (filteredChannels.length > 0) {
+                    const chanHeader = document.createElement('div');
+                    chanHeader.className = 'text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider px-2 my-2';
+                    chanHeader.textContent = 'Public Channels';
+                    DOM.contactList.appendChild(chanHeader);
+
+                    filteredChannels.forEach(ch => {
+                        const item = document.createElement('div');
+                        const isSelected = STATE.activeChatId === ch.id;
+                        item.className = `p-3 rounded-2xl flex items-center justify-between cursor-pointer transition-all duration-200 ${isSelected ? 'bg-indigo-600/15 border border-indigo-500/30 shadow-sm' : 'hover:bg-[var(--bg-main)]'}`;
+                        item.onclick = () => {
+                            selectRoom(ch.id, 'channel', ch.name, ch.badge, '#');
+                            closeMobileSidebar();
+                        };
+
+                        item.innerHTML = `
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black text-sm">
+                                    #
+                                </div>
+                                <div class="overflow-hidden">
+                                    <div class="font-bold text-xs text-[var(--text-main)] truncate">${ch.name}</div>
+                                    <div class="text-[10px] text-[var(--text-muted)] truncate">${ch.description}</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">${ch.badge}</span>
+                        `;
+                        DOM.contactList.appendChild(item);
+                    });
+                }
+            }
+
+            if (STATE.activeFilter === 'all' || STATE.activeFilter === 'direct') {
+                const filteredDirect = STATE.directChats.filter(d => d.name.toLowerCase().includes(query) || d.id.toLowerCase().includes(query));
+                
+                if (filteredDirect.length > 0 || STATE.directChats.length > 0) {
+                    const dmHeader = document.createElement('div');
+                    dmHeader.className = 'text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider px-2 my-2 mt-4';
+                    dmHeader.textContent = 'Direct Peer Chats';
+                    DOM.contactList.appendChild(dmHeader);
+
+                    filteredDirect.forEach(dm => {
+                        const item = document.createElement('div');
+                        const isSelected = STATE.activeChatId === dm.id;
+                        item.className = `p-3 rounded-2xl flex items-center justify-between cursor-pointer transition-all duration-200 ${isSelected ? 'bg-indigo-600/15 border border-indigo-500/30 shadow-sm' : 'hover:bg-[var(--bg-main)]'}`;
+                        item.onclick = () => {
+                            selectRoom(dm.id, 'direct', dm.name, 'Direct', 'DM');
+                            closeMobileSidebar();
+                        };
+
+                        item.innerHTML = `
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="w-10 h-10 rounded-2xl bg-purple-600/20 text-purple-400 flex items-center justify-center font-black text-xs">
+                                    DM
+                                </div>
+                                <div class="overflow-hidden">
+                                    <div class="font-bold text-xs text-[var(--text-main)] truncate">${dm.name}</div>
+                                    <div class="text-[10px] font-mono text-[var(--text-muted)] truncate">${dm.id}</div>
+                                </div>
+                            </div>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        `;
+                        DOM.contactList.appendChild(item);
+                    });
+                }
+            }
+        }
+
+        function selectRoom(id, type, title, badge, avatar) {
+            STATE.activeChatId = id;
+            STATE.activeChatType = type;
+            STATE.activeChatTitle = title;
+
+            DOM.activeChatTitle.textContent = title;
+            DOM.activeBadge.textContent = badge || 'Active';
+            DOM.activeAvatar.textContent = avatar || title.substring(0, 2).toUpperCase();
+            DOM.activeChatSubtitle.textContent = type === 'channel' ? 'Live Firestore Mesh Channel' : `Direct Peer ID: ${id.substring(0, 12)}...`;
+
+            renderSidebar();
+            listenToMessages();
+        }
+
+        DOM.copyUidBtn.onclick = () => {
+            if (!STATE.userId) return;
+            const tempInput = document.createElement('input');
+            tempInput.value = STATE.userId;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast("Copied User ID to clipboard!", "success");
+        };
+
+        document.querySelectorAll('.filter-chip').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.filter-chip').forEach(b => {
+                    b.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+                    b.classList.add('hover:bg-[var(--bg-main)]');
+                });
+                btn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+                btn.classList.remove('hover:bg-[var(--bg-main)]');
+                STATE.activeFilter = btn.dataset.filter;
+                renderSidebar();
+            };
+        });
+
+        DOM.contactSearch.oninput = (e) => {
+            STATE.searchQuery = e.target.value.trim();
+            renderSidebar();
+        };
+
+        DOM.contactSearch.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                const val = DOM.contactSearch.value.trim();
+                if (val.length >= 8) {
+                    if (!STATE.directChats.some(d => d.id === val)) {
+                        STATE.directChats.push({ id: val, name: `Peer ${val.substring(0, 5)}` });
+                    }
+                    selectRoom(val, 'direct', `Peer ${val.substring(0, 5)}`, 'Direct', 'DM');
+                    DOM.contactSearch.value = '';
+                    STATE.searchQuery = '';
+                    showToast(`Started direct messaging with ${val.substring(0, 8)}...`, "success");
+                } else {
+                    showToast("Enter a valid User ID to start direct messaging", "warning");
+                }
+            }
+        };
+
+        DOM.openSettings.onclick = openModal;
+        DOM.closeSettings.onclick = closeModal;
+        DOM.cancelSettingsBtn.onclick = closeModal;
+
+        function openModal() {
+            DOM.settingsModal.classList.remove('hidden');
+            setTimeout(() => {
+                DOM.modalContainer.classList.remove('scale-95', 'opacity-0');
+                DOM.modalContainer.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            renderModalTab('profile');
+        }
+
+        function closeModal() {
+            DOM.modalContainer.classList.remove('scale-100', 'opacity-100');
+            DOM.modalContainer.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => DOM.settingsModal.classList.add('hidden'), 200);
+        }
+
+        document.querySelectorAll('.modal-tab').forEach(tabBtn => {
+            tabBtn.onclick = () => {
+                document.querySelectorAll('.modal-tab').forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow-md');
+                    b.classList.add('text-[var(--text-muted)]');
+                });
+                tabBtn.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-md');
+                tabBtn.classList.remove('text-[var(--text-muted)]');
+                renderModalTab(tabBtn.dataset.tab);
+            };
+        });
+
+        function renderModalTab(tabKey) {
+            const container = DOM.modalTabContent;
+            if (tabKey === 'profile') {
+                DOM.modalTabTitle.textContent = "Edit Profile";
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold mb-1.5 text-[var(--text-main)]">Display Name</label>
+                            <input type="text" id="settingName" value="${STATE.displayName}" class="w-full px-4 py-3 bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl outline-none text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1.5 text-[var(--text-main)]">Status / Bio</label>
+                            <input type="text" id="settingBio" value="${STATE.bio}" class="w-full px-4 py-3 bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl outline-none text-xs">
+                        </div>
+                    </div>
+                `;
+            } else if (tabKey === 'appearance') {
+                DOM.modalTabTitle.textContent = "Appearance Themes";
+                container.innerHTML = `
+                    <div class="grid grid-cols-3 gap-3">
+                        <div onclick="window.setTheme('dark')" class="p-4 rounded-2xl border-2 cursor-pointer transition flex flex-col items-center gap-2 ${STATE.theme === 'dark' ? 'border-indigo-500 bg-indigo-500/10' : 'border-[var(--border)]'}">
+                            <i class="fa-solid fa-moon text-indigo-400 text-2xl"></i>
+                            <span class="font-bold text-xs">Obsidian Dark</span>
+                        </div>
+                        <div onclick="window.setTheme('light')" class="p-4 rounded-2xl border-2 cursor-pointer transition flex flex-col items-center gap-2 ${STATE.theme === 'light' ? 'border-indigo-500 bg-indigo-500/10' : 'border-[var(--border)]'}">
+                            <i class="fa-solid fa-sun text-amber-500 text-2xl"></i>
+                            <span class="font-bold text-xs">Clean Light</span>
+                        </div>
+                        <div onclick="window.setTheme('cyber')" class="p-4 rounded-2xl border-2 cursor-pointer transition flex flex-col items-center gap-2 ${STATE.theme === 'cyber' ? 'border-indigo-500 bg-indigo-500/10' : 'border-[var(--border)]'}">
+                            <i class="fa-solid fa-bolt text-cyan-400 text-2xl"></i>
+                            <span class="font-bold text-xs">Cyber Neon</span>
+                        </div>
+                    </div>
+                `;
+            } else if (tabKey === 'devices') {
+                DOM.modalTabTitle.textContent = "Media Hardware";
+                container.innerHTML = `
+                    <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-base"></i> Hardware Acceleration & WebRTC Audio/Video Ready.
+                    </div>
+                `;
+            }
+        }
+
+        DOM.saveSettingsBtn.onclick = async () => {
+            const nameIn = document.getElementById('settingName');
+            const bioIn = document.getElementById('settingBio');
+            if (nameIn) STATE.displayName = nameIn.value.trim();
+            if (bioIn) STATE.bio = bioIn.value.trim();
+
+            DOM.userNameDisplay.textContent = STATE.displayName;
+            DOM.userBioDisplay.textContent = STATE.bio;
+            DOM.userAvatarContainer.textContent = STATE.displayName.substring(0, 2).toUpperCase();
+
+            if (STATE.currentUser) {
+                const profileRef = doc(db, 'artifacts', appId, 'public', 'data', 'profiles', STATE.userId);
+                await updateDoc(profileRef, {
+                    displayName: STATE.displayName,
+                    bio: STATE.bio,
+                    theme: STATE.theme
+                });
+            }
+
+            showToast("Profile settings saved!", "success");
+            closeModal();
+        };
+
+        window.setTheme = function(theme) {
+            STATE.theme = theme;
+            applyTheme(theme);
+            renderModalTab('appearance');
+        };
+
+        function applyTheme(theme) {
+            document.documentElement.classList.remove('dark', 'theme-cyber');
+            if (theme === 'dark') document.documentElement.classList.add('dark');
+            if (theme === 'cyber') document.documentElement.classList.add('theme-cyber');
+        }
+
+        DOM.openSidebarMobile.onclick = () => {
+            DOM.sidebar.classList.remove('-translate-x-full');
+            DOM.mobileOverlay.classList.remove('hidden');
+        };
+
+        DOM.closeSidebarMobile.onclick = closeMobileSidebar;
+        DOM.mobileOverlay.onclick = closeMobileSidebar;
+
+        function closeMobileSidebar() {
+            DOM.sidebar.classList.add('-translate-x-full');
+            DOM.mobileOverlay.classList.add('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-slate-900 text-white border-slate-700',
+                success: 'bg-emerald-600 text-white border-emerald-500',
+                error: 'bg-rose-600 text-white border-rose-500',
+                warning: 'bg-amber-600 text-white border-amber-500'
+            };
+
+            toast.className = `p-3 px-4 rounded-2xl border ${colors[type]} shadow-2xl text-xs font-bold flex items-center gap-2.5 pointer-events-auto transition-all duration-300`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-info text-sm"></i> <span>${message}</span>`;
+            DOM.toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        window.onload = () => {
+            init3DLogo();
+            initAuth();
+        };
+    </script>
+</body>
+</html>
